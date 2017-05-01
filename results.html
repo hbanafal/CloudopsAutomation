@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (elem.innerHTML === 'Passed') {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    toggle_sort_states(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+    var multiplier = reversed ? -1 : 1;
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+        return multiplier * (key_a >= key_b ? 1 : -1);
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <p>Report generated on 04-Apr-2017 at 16:04:33 by<a href="https://pypi.python.org/pypi/pytest-html"> pytest-html</a> v1.13.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.14393-SP0</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.5.3</td></tr></table>
+    <h2>Summary</h2>
+    <p>26 tests ran in 919.46 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">17 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">9 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="5">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/homepage/test_need_a_developer_card.py::need_a_developer::test_need_a_developer</td>
+          <td class="col-duration">0.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.homepage.test_need_a_developer_card.need_a_developer testMethod=test_need_a_developer&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_need_a_developer(self):<br/>        home = HomePage(self.driver)<br/>        home.click_start_need_developer()<br/>&gt;       result = home.verify_redirection(&quot;http://beta.engineer.ai/?name=Hemant%20Uncle&amp;email=hemant.singh@sd2labs.com&amp;phone_number=+919096993662/#/need-a-developer&quot;)<br/><br/>com\cloudops\smoketests\homepage\test_need_a_developer_card.py:21: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.pagelib.HomePage.HomePage object at 0x0000028080B37E10&gt;<br/>expected_url = &#x27;http://beta.engineer.ai/?name=Hemant%20Uncle&amp;email=hemant.singh@sd2labs.com&amp;phone_number=+919096993662/#/need-a-developer&#x27;<br/><br/>    def verify_redirection(self, expected_url):<br/>&gt;       window_after = self.driver.window_handles[1]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>com\cloudops\genericlib\SolventSelenium.py:168: IndexError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/homepage/test_need_a_devops.py::need_a_devops::test_need_a_devops</td>
+          <td class="col-duration">0.78</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.homepage.test_need_a_devops.need_a_devops testMethod=test_need_a_devops&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_need_a_devops(self):<br/>        home = HomePage(self.driver)<br/>        home.click_start_need_devops()<br/>&gt;       result = home.verify_redirection(&quot;http://beta.engineer.ai/?name=Hemant%20Uncle&amp;email=hemant.singh@sd2labs.com&amp;phone_number=+919096993662/#/need-a-devops&quot;)<br/><br/>com\cloudops\smoketests\homepage\test_need_a_devops.py:21: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.pagelib.HomePage.HomePage object at 0x0000028080AC30F0&gt;<br/>expected_url = &#x27;http://beta.engineer.ai/?name=Hemant%20Uncle&amp;email=hemant.singh@sd2labs.com&amp;phone_number=+919096993662/#/need-a-devops&#x27;<br/><br/>    def verify_redirection(self, expected_url):<br/>&gt;       window_after = self.driver.window_handles[1]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>com\cloudops\genericlib\SolventSelenium.py:168: IndexError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/prepaid_dashboard/test_ViewFullAccountHistory.py::ViewFullAccountHistory::test_full_account_history</td>
+          <td class="col-duration">9.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.prepaid_dashboard.test_ViewFullAccountHistory.ViewFullAccountHistory testMethod=test_full_account_history&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_full_account_history(self):<br/>        home = HomePage(self.driver)<br/>        home.view_prepaid_dashboard()<br/>        dashboard = PrepaidDashboard(self.driver)<br/>        dashboard.click_full_account_history_button()<br/>        full_account_history = FullAccountHistory(self.driver)<br/>        result1 = full_account_history.verify_full_account_history_page_title()<br/>        self.ts.mark(result1, &quot;Full Account History Page Title is verified&quot;)<br/>        full_account_history.click_on_viewall_recharges_link()<br/>        previous_recharges = PreviousRecharges(self.driver)<br/>        result2 = previous_recharges.verify_previous_recharges_page_title()<br/>        self.ts.mark(result2, &quot;Previous Recharged Page title is verified&quot;)<br/>        previous_recharges.click_back_to_account_history_link()<br/>        result3 = full_account_history.verify_full_account_history_page_title()<br/>        self.ts.mark(result3, &quot;Back to Full Account History link from Recharges page is verified&quot;)<br/>        full_account_history.click_on_backtodashboard_link()<br/>        result4 = dashboard.verify_prepaid_dashboard_title()<br/>&gt;       self.ts.markFinal(&quot;test_full_account_history&quot;, result4, &quot;Back to Prepaid Dashboard link from Full Account History page is verified&quot;)<br/><br/>com\cloudops\smoketests\prepaid_dashboard\test_ViewFullAccountHistory.py:37: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.genericlib.TestStatus.TestStatus object at 0x0000028080B7B208&gt;<br/>testName = &#x27;test_full_account_history&#x27;, result = True<br/>resultMessage = &#x27;Back to Prepaid Dashboard link from Full Account History page is verified&#x27;<br/><br/>    def markFinal(self, testName, result, resultMessage):<br/>        &quot;&quot;&quot;<br/>            Mark the final result of the verification point in a test case<br/>            This needs to be called at least once in a test case<br/>            This should be final test status of the test case<br/>            &quot;&quot;&quot;<br/>        self.setResult(result, resultMessage)<br/>    <br/>        if &quot;FAIL&quot; in self.resultList:<br/>            self.log.error(testName +  &quot; ### TEST FAILED&quot;)<br/>            self.resultList.clear()<br/>&gt;           assert True == False<br/><span class="error">E           AssertionError</span><br/><br/>com\cloudops\genericlib\TestStatus.py:63: AssertionError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/promocode/test_usd_coupon_in_inr_account.py::USD_Code_In_INR_Account::test_usd_code_in_inr_account</td>
+          <td class="col-duration">10.95</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.promocode.test_usd_coupon_in_inr_account.USD_Code_In_INR_Account testMethod=test_usd_code_in_inr_account&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_usd_code_in_inr_account(self):<br/>        home = HomePage(self.driver)<br/>        home.recharge_now()<br/>        self.recharge_page.apply_coupon(self.coupon_code)<br/>&gt;       result = self.recharge_page.verify_incorrect_coupon_message()<br/><br/>com\cloudops\smoketests\promocode\test_usd_coupon_in_inr_account.py:26: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.pagelib.RechargePage.RechargePage object at 0x0000028080BA4EF0&gt;<br/><br/>    def verify_incorrect_coupon_message(self):<br/>        incorrect_coupon_message = self.getText(&quot;//div[@class=&#x27;modal-dialog&#x27;]//div[@id=&#x27;coupon_error&#x27;]//span&quot;)<br/>        expected_error_message = &quot;Sorry. This promo code is incorrect&quot;<br/>        if incorrect_coupon_message == expected_error_message:<br/>            self.log.info(&quot;Actual message : &quot; + incorrect_coupon_message + &quot;is same as the expected message : &quot; + expected_error_message)<br/>            return True<br/>        else:<br/>&gt;           self.log.info(&quot;Actual message : &quot; + incorrect_coupon_message + &quot;is not same as the expected message : &quot; + expected_error_message)<br/><span class="error">E           TypeError: Can&#x27;t convert &#x27;NoneType&#x27; object to str implicitly</span><br/><br/>com\cloudops\pagelib\RechargePage.py:71: TypeError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/settings/test_password_setting.py::PasswordSetting::test_change_password</td>
+          <td class="col-duration">38.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.settings.test_password_setting.PasswordSetting testMethod=test_change_password&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_change_password(self):<br/>        sidepanel = SideNavigationPanel(self.driver)<br/>        sidepanel.open_side_panel()<br/>        sidepanel.navigate_to_settings()<br/>        settings = Settings(self.driver)<br/>        settings.change_password(&quot;password&quot;, &quot;newpassword&quot;)<br/>        sidepanel.open_side_panel()<br/>        sidepanel.navigate_to_home()<br/>        home = HomePage(self.driver)<br/>        expected_id = home.get_name_on_the_header()<br/>        login = LoginPage(self.driver)<br/>        login.logout_user()<br/>        login.login(&quot;hemant.singh@sd2labs.com&quot;, &quot;password&quot;)<br/>&gt;       result1 = login.verify_invalid_error_message()<br/><br/>com\cloudops\smoketests\settings\test_password_setting.py:39: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.pagelib.LoginPage.LoginPage object at 0x0000028080C50198&gt;<br/><br/>    def  verify_invalid_error_message(self):<br/>        actual_error_msg = self.getText(self._error_message, locatorType=&quot;xpath&quot;)<br/>        expected_error_msg = &quot;Invalid credentials&quot;<br/>        if actual_error_msg == expected_error_msg:<br/>            self.log.info(&quot;Actual Error msg :&quot; + actual_error_msg +<br/>                          &quot; is matched to expected error msg :&quot; + actual_error_msg)<br/>            return True<br/>        else:<br/>            self.log.info(&quot;Actual Error msg :&quot; + actual_error_msg +<br/>&gt;                         &quot; is not matched to expected error msg :&quot; + actual_error_msg)<br/><span class="error">E           TypeError: Can&#x27;t convert &#x27;NoneType&#x27; object to str implicitly</span><br/><br/>com\cloudops\pagelib\LoginPage.py:75: TypeError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/sidepanel/test_linkedin_redirection.py::LinkedInRedirection::test_linkedin_redirection</td>
+          <td class="col-duration">2.65</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.sidepanel.test_linkedin_redirection.LinkedInRedirection testMethod=test_linkedin_redirection&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_linkedin_redirection(self):<br/>        side_menu = SideNavigationPanel(self.driver)<br/>        side_menu.open_side_panel()<br/>        side_menu.navigate_to_linkedin()<br/>&gt;       result = side_menu.verify_redirection(&quot;https://www.linkedin.com/company-beta/3878187/&quot;)<br/><br/>com\cloudops\smoketests\sidepanel\test_linkedin_redirection.py:21: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.pagelib.SideNavigation.SideNavigationPanel object at 0x0000028080B85208&gt;<br/>expected_url = &#x27;https://www.linkedin.com/company-beta/3878187/&#x27;<br/><br/>    def verify_redirection(self, expected_url):<br/>&gt;       window_after = self.driver.window_handles[1]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>com\cloudops\genericlib\SolventSelenium.py:168: IndexError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/user_onboarding/test_Signup.py::SignupTest::test_signup_with_existing_email</td>
+          <td class="col-duration">13.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.user_onboarding.test_Signup.SignupTest testMethod=test_signup_with_existing_email&gt;<br/><br/>    @pytest.mark.run(order=1)<br/>    def test_signup_with_existing_email(self):<br/>        self.signup.signup(&quot;Hemant Singh&quot;, &quot;hemant.singh@sd2labs.com&quot;, &quot;9090909090&quot;, &quot;password&quot;, &quot;INR&quot;)<br/>    <br/>        result = self.signup.verify_existing_user_error()<br/>&gt;       self.ts.markFinal(&quot;test_signup_with_existing_email&quot;, result, &quot;Signup with existing email is verified&quot;)<br/><br/>com\cloudops\smoketests\user_onboarding\test_Signup.py:30: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.genericlib.TestStatus.TestStatus object at 0x0000028080C3CEF0&gt;<br/>testName = &#x27;test_signup_with_existing_email&#x27;, result = False<br/>resultMessage = &#x27;Signup with existing email is verified&#x27;<br/><br/>    def markFinal(self, testName, result, resultMessage):<br/>        &quot;&quot;&quot;<br/>            Mark the final result of the verification point in a test case<br/>            This needs to be called at least once in a test case<br/>            This should be final test status of the test case<br/>            &quot;&quot;&quot;<br/>        self.setResult(result, resultMessage)<br/>    <br/>        if &quot;FAIL&quot; in self.resultList:<br/>            self.log.error(testName +  &quot; ### TEST FAILED&quot;)<br/>            self.resultList.clear()<br/>&gt;           assert True == False<br/><span class="error">E           AssertionError</span><br/><br/>com\cloudops\genericlib\TestStatus.py:63: AssertionError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/user_onboarding/test_Signup.py::SignupTest::test_signup</td>
+          <td class="col-duration">12.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.user_onboarding.test_Signup.SignupTest testMethod=test_signup&gt;<br/><br/>    @pytest.mark.run(order=2)<br/>    def test_signup(self):<br/>        email_id = (&#x27;&#x27;.join(choice(ascii_lowercase) for i in range(12))) + &quot;@gmail.com&quot;<br/>        self.signup.signup(&quot;Hemant Singh&quot;, email_id, &quot;9090909090&quot;, &quot;password&quot;, &quot;USD&quot;)<br/>    <br/>        result = self.signup.verify_email_confirmation_page()<br/>&gt;       self.ts.markFinal(&quot;test_signup&quot;, result, &quot;Sign up verified&quot;)<br/><br/>com\cloudops\smoketests\user_onboarding\test_Signup.py:23: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.genericlib.TestStatus.TestStatus object at 0x0000028080C47A90&gt;<br/>testName = &#x27;test_signup&#x27;, result = False, resultMessage = &#x27;Sign up verified&#x27;<br/><br/>    def markFinal(self, testName, result, resultMessage):<br/>        &quot;&quot;&quot;<br/>            Mark the final result of the verification point in a test case<br/>            This needs to be called at least once in a test case<br/>            This should be final test status of the test case<br/>            &quot;&quot;&quot;<br/>        self.setResult(result, resultMessage)<br/>    <br/>        if &quot;FAIL&quot; in self.resultList:<br/>            self.log.error(testName +  &quot; ### TEST FAILED&quot;)<br/>            self.resultList.clear()<br/>&gt;           assert True == False<br/><span class="error">E           AssertionError</span><br/><br/>com\cloudops\genericlib\TestStatus.py:63: AssertionError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">com/cloudops/smoketests/user_onboarding/test_LoginTest.py::LoginTests::test_login</td>
+          <td class="col-duration">5.67</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="log">self = &lt;com.cloudops.smoketests.user_onboarding.test_LoginTest.LoginTests testMethod=test_login&gt;<br/><br/>    @pytest.mark.run(order=3)<br/>    def test_login(self):<br/>        self.lp.login(&quot;hemant.singh@sd2labs.com&quot;, &quot;password&quot;)<br/>        result = self.lp.verify_login_successful(&quot;Hemant Uncle&quot;)<br/>&gt;       self.ts.markFinal(&quot;test_login&quot;, result, &quot;Login withvalid credentials verified&quot;)<br/><br/>com\cloudops\smoketests\user_onboarding\test_LoginTest.py:33: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;com.cloudops.genericlib.TestStatus.TestStatus object at 0x0000028080C4C0B8&gt;<br/>testName = &#x27;test_login&#x27;, result = False<br/>resultMessage = &#x27;Login withvalid credentials verified&#x27;<br/><br/>    def markFinal(self, testName, result, resultMessage):<br/>        &quot;&quot;&quot;<br/>            Mark the final result of the verification point in a test case<br/>            This needs to be called at least once in a test case<br/>            This should be final test status of the test case<br/>            &quot;&quot;&quot;<br/>        self.setResult(result, resultMessage)<br/>    <br/>        if &quot;FAIL&quot; in self.resultList:<br/>            self.log.error(testName +  &quot; ### TEST FAILED&quot;)<br/>            self.resultList.clear()<br/>&gt;           assert True == False<br/><span class="error">E           AssertionError</span><br/><br/>com\cloudops\genericlib\TestStatus.py:63: AssertionError<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/homepage/test_automated_monitoring.py::automated_monitoring::test_automated_monitoring</td>
+          <td class="col-duration">0.68</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/homepage/test_backup_data.py::backup_data::test_backup_data</td>
+          <td class="col-duration">0.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/homepage/test_setup_autoscaling.py::setup_autoscaling::test_setup_autoscaling</td>
+          <td class="col-duration">0.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/prepaid_dashboard/test_VerifyPrepaidDashboard.py::VerifyPrepaidDashboard::test_prepaid_dashboard_content</td>
+          <td class="col-duration">1.33</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/promocode/test_PromoCode.py::PromoCode::test_promo_code</td>
+          <td class="col-duration">22.46</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/recharge/test_recharge.py::Recharge::test_recharge</td>
+          <td class="col-duration">10.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/recharge/test_recharge_with_radio_options.py::Recharge_With_RadioOptions::test_recharge_with_radio_buttons</td>
+          <td class="col-duration">9.62</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/settings/test_company_details_setting.py::CompanyDetialsSetting::test_change_company_details</td>
+          <td class="col-duration">10.68</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/settings/test_name_setting.py::NameSetting::test_change_name</td>
+          <td class="col-duration">10.33</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/sidepanel/test_facebook_redirection.py::FacebookRedirection::test_facebook_redirection</td>
+          <td class="col-duration">5.60</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/sidepanel/test_navigation_to_prepaid_dashboard.py::NavigationToPrepaidDashboard::test_navigation_to_prepaid_dashboard</td>
+          <td class="col-duration">3.34</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/sidepanel/test_navigation_to_settings_page.py::NavigationToSettings::test_navigation_to_settings</td>
+          <td class="col-duration">4.71</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/sidepanel/test_twitter_redirection.py::TwitterRedirection::test_twitter_redirection</td>
+          <td class="col-duration">3.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/user_onboarding/test_LoginTest.py::LoginTests::test_login_without_password</td>
+          <td class="col-duration">2.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/user_onboarding/test_LoginTest.py::LoginTests::test_login_with_invalid_cred</td>
+          <td class="col-duration">3.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/promocode/test_PromoCode.py::PromoCode::test_incorrect_promo_code</td>
+          <td class="col-duration">7.40</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">com/cloudops/smoketests/user_onboarding/test_LoginTest.py::LoginTests::test_logout</td>
+          <td class="col-duration">7.83</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="5">
+            <div class="empty log">No log output captured.</div></td></tr></tbody></table></body></html>

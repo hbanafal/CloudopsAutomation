@@ -1,0 +1,16 @@
+1489482990908	geckodriver	INFO	Listening on 127.0.0.1:64836
+1489482992932	mozprofile::profile	INFO	Using profile path C:\Users\shubh\AppData\Local\Temp\rust_mozprofile.NaulwVeYLpaA
+1489482992957	geckodriver::marionette	INFO	Starting browser C:\Program Files\Mozilla Firefox\firefox.exe
+1489482992979	geckodriver::marionette	INFO	Connecting to Marionette on localhost:64846
+1489483017265 Marionette: Element does not have a correct accessibility role and may not be manipulated via the accessibility API -> id: user_password, tagName: INPUT, className: password optional
+1489483023654 Marionette: Element does not support any accessible actions -> id: , tagName: LABEL, className: 
+1489487418760	geckodriver	INFO	Listening on 127.0.0.1:54533
+1489487420721	mozprofile::profile	INFO	Using profile path C:\Users\shubh\AppData\Local\Temp\rust_mozprofile.PlXshZN3oaUb
+1489487420739	geckodriver::marionette	INFO	Starting browser C:\Program Files\Mozilla Firefox\firefox.exe
+1489487420779	geckodriver::marionette	INFO	Connecting to Marionette on localhost:54539
+1489487459109 Marionette: Element does not have a correct accessibility role and may not be manipulated via the accessibility API -> id: user_password, tagName: INPUT, className: password optional
+1489487497777	geckodriver	INFO	Listening on 127.0.0.1:54701
+1489487499789	mozprofile::profile	INFO	Using profile path C:\Users\shubh\AppData\Local\Temp\rust_mozprofile.wtCXwdKgHPNB
+1489487499813	geckodriver::marionette	INFO	Starting browser C:\Program Files\Mozilla Firefox\firefox.exe
+1489487499830	geckodriver::marionette	INFO	Connecting to Marionette on localhost:54711
+1489487539761 Marionette: Element does not have a correct accessibility role and may not be manipulated via the accessibility API -> id: user_password, tagName: INPUT, className: password optional
